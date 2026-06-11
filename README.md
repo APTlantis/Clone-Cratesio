@@ -1,57 +1,82 @@
----
-[project]
-name = "Cratesio"
-slug = "cratesio"
+# CloneCratesio
 
-description = "High-Performance Rust Crates.io Mirror and Metadata Sidecar Generator"
+![status](https://img.shields.io/badge/status-production-brightgreen)
+![license](https://img.shields.io/badge/license-MIT-blue)
+![mirror](https://img.shields.io/badge/mirror%20run-100%25%20success-brightgreen)
+![observability](https://img.shields.io/badge/observability-Prometheus-orange)
+![language](https://img.shields.io/badge/language-Go%20%2B%20Python-lightgrey)
 
-[tags]
-languages = ["go", "python", "rust"]
-platforms = ["windows", "linux"]
-tooling = ["git"]
----
+CloneCratesio is a production-grade crates.io mirror pipeline built for large Rust ecosystem captures, offline development, archival work, and metadata analysis. It expands a local `crates.io-index` checkout into downloaded `.crate` artifacts, optional rolling `tar.zst` bundles, JSONL manifests, and sidecar metadata while exposing live operational telemetry through Prometheus and pprof.
 
-# Mirror-Crates
+The project has proven itself at full registry scale: on June 11, 2026, it mirrored 2,490,647 crate records with 2,490,647 successes, 0 errors, and a sustained rate of roughly 264 records per second.
 
-### High-Performance Rust Crates.io Mirror, Bundle, and Sidecar Pipeline
+![CloneCratesio full mirror run showing 2,490,647 processed, 2,490,647 ok, 0 errors](Docs/Crates-Mirror-6.11.26.png)
 
-<p align="center">
-  <img alt="Go" src="https://img.shields.io/badge/Go-%3E%3D1.25-00ADD8?logo=go">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python">
-  <img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/APTlantis/CloneCratesio">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
-  <img alt="Status" src="https://img.shields.io/badge/status-active-success">
-</p>
-
-<p align="center">
-  <strong>Mirror crates.io as loose files or low-inode rolling bundles, then generate sidecars that match the storage mode you chose.</strong>
-</p>
+Quick links: [Architecture](Docs/Architecture.md) | [Windows Quickstart](Docs/Quickstart-Windows.md) | [Prometheus](Docs/Prometheus.md) | [Airgap Guide](Docs/Airgap-Guide.md)
 
 ---
 
-![Running the full pipeline](Docs/RunningThePipeline-Screenshot%202026-01-14%20175852.png)
+## What This Project Covers
 
-**Quick links:** [Quickstart (Windows)](Docs/Quickstart-Windows.md) | [Airgap Guide](Docs/Airgap-Guide.md) | [Architecture](Docs/Architecture.md) | [Prometheus Metrics](Docs/Prometheus.md)
+| Area | Summary |
+|------|---------|
+| Crates.io mirroring | Downloads crate archives from `static.crates.io` using entries from a local `crates.io-index` checkout. |
+| Full-registry operation | Designed for millions of crate records, high concurrency, retries, progress logging, and restart-friendly update runs. |
+| Integrity | Uses index checksum hints when available, supports explicit verification of existing files, and writes per-record audit output. |
+| Storage models | Supports loose `.crate` files and rolling `tar.zst` bundle archives. |
+| Bundle recovery | Can extract bundle archives back into the normal crates.io shard layout. |
+| Metadata | Generates sidecar metadata as per-crate JSON files or aggregated JSONL for bundle workflows. |
+| Observability | Exposes `/metrics`, `/api/status`, and `/debug/pprof/` on a configurable listener. |
+| Airgap support | Produces portable mirror artifacts suitable for offline Rust development and ecosystem analysis. |
 
-## Why It Is Fast
+---
 
-Traditional mirroring scripts struggle with millions of tiny `.crate` files. This project focuses on:
+## Verified Full Mirror Run
 
-- **High concurrency** with HTTP/2 connection reuse
-- **Fast incremental updates** by trusting existing crate files during routine syncs
-- **Explicit re-verification** with `-verify-existing` when you want a full checksum pass
-- **Rolling bundles** for low-inode workflows
-- **Structured JSONL audit logs** for run history, bundle metadata, and sidecar export
-- **Prometheus metrics and pprof** for live operational visibility
+The screenshot above records a completed full mirror run from June 11, 2026.
 
-## What It Can Do
+| Metric | Value |
+|--------|-------|
+| Processed records | `2,490,647` |
+| Successful records | `2,490,647` |
+| Errors | `0` |
+| Downloaded records | `2,490,647` |
+| Existing records | `0` |
+| Verified existing records | `0` |
+| Downloader elapsed time | `2h36m58.405262s` |
+| Observed processing rate | `264.4/sec` |
+| Outer wrapper elapsed time | `11106.8s` |
+| Result | Full crates.io mirror completed successfully |
 
-- **Download Crates** as a normal crates.io-style shard tree
-- **Bundle Crates** into rolling `tar.zst` archives with per-bundle manifests and a top-level bundle index
-- **Generate Loose Sidecars** as `name-version.crate.json` files next to loose crates
-- **Generate JSONL Sidecars** for bundled workflows without creating millions of tiny metadata files
-- **Extract Bundles** back into the normal crates.io shard layout
-- **Expose Metrics** automatically on `:9090` by default
+The downloader reported the mirror itself at `2h36m58.405262s`. The outer wrapper also printed a final process-level completion line of `11106.8s`, which can include setup, orchestration, and surrounding process time depending on how the run was launched.
+
+The run also shows transient upstream `HTTP 500` responses being retried without losing the job. That matters: a full registry mirror is not just a fast download loop. It must survive registry-side errors, network noise, and millions of individual decisions while preserving a trustworthy record of what happened.
+
+---
+
+## Architecture at a Glance
+
+```mermaid
+flowchart LR
+    A["crates.io-index checkout"] --> B["Clone-Index.py"]
+    B --> C["download-crates"]
+    C --> D["Loose .crate mirror"]
+    C --> E["Rolling tar.zst bundles"]
+    C --> F["JSONL audit manifest"]
+    F --> G["generate-sidecars"]
+    A --> G
+    G --> H["Per-crate JSON sidecars"]
+    G --> I["Aggregated JSONL sidecars"]
+    E --> J["extract-bundles"]
+    J --> D
+    C --> K["Prometheus /metrics"]
+    C --> L["/api/status"]
+    C --> M["pprof"]
+```
+
+The design separates registry indexing, crate transfer, artifact storage, sidecar generation, and operational telemetry. Each piece can be run independently, which makes the system easier to resume, inspect, test, and adapt for offline or archival workflows.
+
+---
 
 ## Repository Layout
 
@@ -64,146 +89,386 @@ cmd/
 internal/
   downloader/                Download, retry, bundle, manifest, and metrics engine
   sidecar/                   Sidecar generation library
-Docs/                        Architecture, guides, and screenshots
+Docs/                        Architecture, guides, screenshots, and release notes
 Testdata/                    Synthetic fixtures used in unit tests
 ```
 
-## Build
+---
 
-Build all CLIs:
+## Components
 
-```sh
-go build ./cmd/...
-```
+### `Clone-Index.py`
 
-Or build individual binaries:
+Python wrapper for the end-to-end mirror workflow.
+
+- Clones or updates the local `crates.io-index`.
+- Provides Windows-friendly defaults under `%USERPROFILE%\Rust-Crates`.
+- Maps high-level workflow flags to the Go downloader.
+- Supports non-interactive runs for scheduled or CI-style operation.
+- Prints wrapper-level start and completion summaries.
+
+### `cmd/download-crates`
+
+Go downloader and primary work engine.
+
+- Reads crate records from a local index or URL list.
+- Builds `https://static.crates.io/crates/{name}/{name}-{version}.crate` URLs.
+- Downloads concurrently using configurable worker count.
+- Retries transient HTTP and network failures.
+- Writes a JSONL audit manifest.
+- Supports loose-file mirrors and rolling bundle archives.
+- Exposes Prometheus, JSON status, and pprof endpoints.
+
+### `cmd/generate-sidecars`
+
+Metadata generation tool.
+
+- Reads index entries and emits structured metadata.
+- Writes per-crate `.crate.json` files for loose-file mirrors.
+- Writes aggregated JSONL sidecars for bundle mirrors.
+- Can enrich sidecars using downloader manifest data such as bundle path and bundle member.
+
+### `cmd/extract-bundles`
+
+Bundle restoration tool.
+
+- Reads `.tar.zst` bundle archives.
+- Restores crate files into the normal crates.io shard layout.
+- Preserves archive member paths exactly as written by the downloader.
+
+---
+
+## Storage Models
+
+### Loose-file mirror
+
+Loose-file mode stores each crate archive under the crates.io shard layout.
+
+Examples:
+
+| Crate | Stored path pattern |
+|-------|---------------------|
+| `serde` | `s/er/serde-<version>.crate` |
+| `ab` | `ab/ab-<version>.crate` |
+| `1serde` | `1/se/1serde-<version>.crate` |
+
+Use this mode when direct per-crate access matters more than inode count.
+
+### Bundle mirror
+
+Bundle mode stores crate archives in rolling `tar.zst` archives.
+
+- Default bundle behavior is `only`, which removes the loose `.crate` after it is added to the bundle.
+- `add` mode keeps both the loose file and the bundled copy.
+- Each bundle gets a per-bundle manifest.
+- The run also produces a top-level `bundles.index.jsonl` catalog.
+
+Use this mode when transportability, archive management, and lower filesystem pressure matter more than browsing individual crate files.
+
+---
+
+## Manifest and Audit Trail
+
+The downloader manifest is a JSONL audit log. Each record can include:
+
+- `schema_version`
+- `url`
+- `path`
+- `storage`
+- `bundle_path`
+- `bundle_member`
+- `size`
+- `sha256`
+- `started_at`
+- `finished_at`
+- `ok`
+- `status`
+- `retries`
+- `error`
+
+Common statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `downloaded` | File was downloaded and verified during this run. |
+| `existing` | File already existed and was trusted for a routine update run. |
+| `verified_existing` | File already existed and was re-hashed successfully. |
+| `error` | Record failed after retry policy was exhausted. |
+
+For large mirrors, this audit log is as important as the files themselves. It lets an operator prove what was attempted, what succeeded, what was skipped, and where any future repair run should focus.
+
+---
+
+## Observability
+
+By default, the downloader listens on `:9090`.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/metrics` | Prometheus scrape endpoint. |
+| `/api/status` | Lightweight JSON status for scripts and dashboards. |
+| `/debug/pprof/` | Go profiling endpoints for CPU, heap, goroutines, and traces. |
+
+The status API reports:
+
+- `processed`
+- `ok`
+- `errors`
+- `downloaded`
+- `existing`
+- `verified_existing`
+- `uptime_sec`
+- `rate_per_sec`
+
+Useful Prometheus metrics include:
+
+- `crates_download_requests_total`
+- `crates_download_bytes_total`
+- `crates_download_duration_seconds`
+- `crates_download_retries_total`
+- `crates_download_inflight`
+- `crates_processed_total`
+
+See [Docs/Prometheus.md](Docs/Prometheus.md) for metric definitions, PromQL examples, Grafana panel ideas, and alerting rules.
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Go 1.25+ or the project-provided toolchain if available.
+- Python 3.9+.
+- Git.
+- Fast local storage. NVMe is strongly recommended for full registry mirrors.
+
+### Prepare directories
 
 ```powershell
-go build -o bin\download-crates.exe .\cmd\download-crates
-go build -o bin\generate-sidecars.exe .\cmd\generate-sidecars
-go build -o bin\extract-bundles.exe .\cmd\extract-bundles
+$root = "$env:USERPROFILE\Rust-Crates"
+New-Item -Force -ItemType Directory $root, "$root\crates.io-index", "$root\mirror" | Out-Null
 ```
 
-## Recommended Workflows
-
-### 1. First Full Mirror as Loose Files
-
-Use this when you want a normal shard tree with `.crate` files on disk.
+### Clone the crates.io index
 
 ```powershell
-python Clone-Index.py --index-dir "S:\Rust-Crates\crates.io-index" --output-dir "S:\Rust-Crates\crates.io" --threads 128 --non-interactive
+git clone https://github.com/rust-lang/crates.io-index "$root\crates.io-index"
 ```
 
-Or run the downloader directly:
+For later runs:
 
 ```powershell
-.\bin\download-crates.exe -index-dir "S:\Rust-Crates\crates.io-index" -out "S:\Rust-Crates\crates.io" -concurrency 128 -include-yanked -progress-interval 5s
+git -C "$root\crates.io-index" fetch --prune --all
+git -C "$root\crates.io-index" reset --hard origin/master
 ```
 
-Then generate loose sidecars:
+### Build the tools
 
 ```powershell
-.\bin\generate-sidecars.exe -index-dir "S:\Rust-Crates\crates.io-index" -out "S:\Rust-Crates\crates.io" -output-mode files -concurrency 128 -include-yanked
+go build -o .\bin\download-crates.exe .\cmd\download-crates
+go build -o .\bin\generate-sidecars.exe .\cmd\generate-sidecars
+go build -o .\bin\extract-bundles.exe .\cmd\extract-bundles
 ```
 
-### 2. Weekly Update Run
-
-The downloader now trusts existing crate files by default, so routine update runs do not re-hash the whole mirror.
+### Dry-run preflight
 
 ```powershell
-.\bin\download-crates.exe -index-dir "S:\Rust-Crates\crates.io-index" -out "S:\Rust-Crates\crates.io" -concurrency 128 -progress-interval 5s
+.\bin\download-crates.exe `
+  -index-dir "$root\crates.io-index" `
+  -out "$root\mirror" `
+  -concurrency 256 `
+  -dry-run `
+  -log-level info
 ```
 
-If you want a full existing-file integrity sweep:
+### Run a loose-file mirror
 
 ```powershell
-.\bin\download-crates.exe -index-dir "S:\Rust-Crates\crates.io-index" -out "S:\Rust-Crates\crates.io" -verify-existing -concurrency 128
+.\bin\download-crates.exe `
+  -index-dir "$root\crates.io-index" `
+  -out "$root\mirror" `
+  -concurrency 256 `
+  -include-yanked `
+  -progress-interval 5s `
+  -listen :9090 `
+  -log-format json
 ```
 
-### 3. Low-Inode Bundle Workflow
-
-Use this when the main goal is reducing inode pressure and avoiding a second full loose-file copy.
+### Run through the Python wrapper
 
 ```powershell
-.\bin\download-crates.exe -index-dir "S:\Rust-Crates\crates.io-index" -out "S:\Rust-Crates\staging" -bundle -bundle-mode only -bundle-size-gb 8 -bundles-out "S:\Rust-Crates\bundles" -manifest "S:\Rust-Crates\manifest.jsonl" -concurrency 128
+python Clone-Index.py `
+  --index-dir "$root\crates.io-index" `
+  --output-dir "$root\mirror" `
+  --threads 256 `
+  --include-yanked `
+  --non-interactive
 ```
 
-Important notes:
-
-- `-bundle-mode only` is the default and removes loose `.crate` files after they are written into the bundle
-- `-bundle-mode add` keeps both the loose files and the bundle
-- Each bundle now gets its own manifest JSONL
-- The bundles directory also gets a top-level `bundles.index.jsonl`
-
-Generate JSONL sidecars for the bundled mirror:
+### Generate sidecars
 
 ```powershell
-.\bin\generate-sidecars.exe -index-dir "S:\Rust-Crates\crates.io-index" -output-mode jsonl -jsonl-out "S:\Rust-Crates\bundle-sidecars.jsonl" -manifest "S:\Rust-Crates\manifest.jsonl" -concurrency 128 -include-yanked
+.\bin\generate-sidecars.exe `
+  -index-dir "$root\crates.io-index" `
+  -out "$root\mirror" `
+  -concurrency 256 `
+  -progress-interval 5s
 ```
 
-### 4. Restore a Bundle Set to Loose Files
+---
 
-Bundle archives now preserve the normal shard layout inside the tar, so extraction recreates the expected directory tree directly.
+## Bundle Workflow
+
+Bundle mode is the better fit when the mirror needs to be moved, archived, or kept on a filesystem where millions of loose files are painful.
 
 ```powershell
-.\bin\extract-bundles.exe -bundles-dir "S:\Rust-Crates\bundles" -out "S:\Rust-Crates\restored"
+.\bin\download-crates.exe `
+  -index-dir "$root\crates.io-index" `
+  -out "$root\mirror-work" `
+  -concurrency 256 `
+  -include-yanked `
+  -bundle `
+  -bundle-mode only `
+  -bundle-size-gb 8 `
+  -bundles-out "$root\bundles" `
+  -manifest "$root\manifest.jsonl" `
+  -listen :9090 `
+  -log-format json
 ```
 
-Use `-overwrite` if you want existing files replaced.
+Generate bundle-oriented sidecars:
 
-## Downloader Notes
+```powershell
+.\bin\generate-sidecars.exe `
+  -index-dir "$root\crates.io-index" `
+  -output-mode jsonl `
+  -jsonl-out "$root\sidecars.jsonl" `
+  -manifest "$root\manifest.jsonl" `
+  -include-yanked
+```
 
-Common options:
+Extract bundles back to the shard layout:
 
-- `-concurrency` - Number of concurrent downloads. Default: `128`
-- `-verify-existing` - Re-hash and verify existing crate files instead of trusting them during update runs
-- `-bundle` - Enable rolling `tar.zst` bundling
-- `-bundle-mode only|add` - Choose whether bundled runs remove or keep loose crate files
-- `-bundle-size-gb` - Target bundle size in GB. Default: `8`
-- `-bundles-out` - Directory for `.tar.zst` bundles, per-bundle manifests, and `bundles.index.jsonl`
-- `-manifest` - Write the JSONL audit log for the run
-- `-listen :PORT` - Override the default metrics listener (`:9090`); pass an empty string to disable it
-- startup logs now print the effective run configuration before work begins
-- completion logs now print a cleaner end-of-run summary with processed, downloaded, existing, verified, elapsed, and rate
+```powershell
+.\bin\extract-bundles.exe `
+  -bundles-dir "$root\bundles" `
+  -pattern "*.tar.zst" `
+  -out "$root\restored-mirror"
+```
 
-## Sidecar Notes
+---
 
-Sidecars now intentionally follow the storage mode:
+## Operational Guidance
 
-- `-output-mode files` is for loose-file mirrors and writes `name-version.crate.json`
-- `-output-mode jsonl` is for bundle workflows and writes one aggregated JSONL stream
-- `-manifest` can enrich JSONL sidecars with `storage`, `bundle_path`, and `bundle_member`
+- Use `-dry-run` before expensive runs to validate paths and effective configuration.
+- Use high concurrency only with fast storage and a reliable network path.
+- Keep the JSONL manifest with the mirror artifacts; it is the repair map.
+- Use `-verify-existing` for deliberate integrity sweeps, not every routine update.
+- Keep Prometheus or the JSON status endpoint visible during full registry runs.
+- Prefer bundle mode for archival transport and loose-file mode for direct file serving.
+- Avoid network shares for active mirroring if throughput and consistency matter.
 
-## Prometheus and pprof
-
-The downloader starts metrics and runtime profiling on `:9090` by default. Override it with `-listen :PORT` if you want a different address, or pass an empty string to disable it:
-
-- Metrics: `http://localhost:PORT/metrics`
-- JSON status: `http://localhost:PORT/api/status`
-- pprof: `http://localhost:PORT/debug/pprof/`
-
-See [Docs/Prometheus.md](Docs/Prometheus.md) for metric details.
+---
 
 ## Development
 
-- Format: `gofmt -w .`
-- Tests: `go test ./...`
-- Lint suggestions: `go vet ./...`, `staticcheck ./...`, `golangci-lint run ./...`
+Build all Go packages:
 
-## Windows and WSL Notes
+```powershell
+go build ./cmd/...
+```
 
-- PowerShell examples use `bin\*.exe`; on WSL/Linux use `bin/*`
-- The repo includes a local Go toolchain under `.tools/go`
-- Large runs benefit from fast disks and predictable destination paths
+Run tests:
 
-## Roadmap Highlights
+```powershell
+go test ./...
+```
 
-- [ ] GUI front-end for monitoring progress, pre-flight checks, and bundle verification
-- [ ] Grafana dashboard templates for Prometheus metrics visualization
-- [ ] Sample manifest and bundle-inspection utilities
-- [ ] Delta sync tooling for periodic updates
+Useful quality checks:
+
+```powershell
+gofmt -w .
+go vet ./...
+```
+
+The automated coverage includes shard path helpers, checksum verification, update behavior, bundle mode behavior, bundle catalog generation, sidecar file mode, and sidecar JSONL mode with manifest enrichment.
+
+---
+
+## Documentation Map
+
+| File | Purpose |
+|------|---------|
+| [Docs/Architecture.md](Docs/Architecture.md) | Detailed pipeline architecture and data flow. |
+| [Docs/Quickstart-Windows.md](Docs/Quickstart-Windows.md) | Windows PowerShell quickstart. |
+| [Docs/Prometheus.md](Docs/Prometheus.md) | Metrics, status API, pprof, Grafana, and alerting. |
+| [Docs/Airgap-Guide.md](Docs/Airgap-Guide.md) | Offline and airgapped usage guidance. |
+| [Docs/CloneCrates.io - Technical Q&A and Implementation Guide.md](Docs/CloneCrates.io%20-%20Technical%20Q%26A%20and%20Implementation%20Guide.md) | Implementation-oriented Q&A. |
+| [Docs/Maintainer-Retrospective-v1.1.0.md](Docs/Maintainer-Retrospective-v1.1.0.md) | Maintainer notes and project history. |
+| [CloneCratesio.manifest.toml](CloneCratesio.manifest.toml) | Machine-readable project manifest. |
+
+---
+
+## Release Posture
+
+CloneCratesio is stable infrastructure. The project is not a toy crawler and not a one-off script; it is a resumable mirroring system with defined artifacts, status reporting, verification behavior, and operational documentation.
+
+Current posture:
+
+| Field | Value |
+|-------|-------|
+| Stage | Production |
+| Completion | 100% |
+| Stability | Stable |
+| Technical debt | Low |
+| Maintenance burden | Low |
+| License | MIT |
+| Maintainer | Herb |
+
+---
+
+## Core Principles
+
+**The manifest is the memory of the run.**
+Downloaded files matter, but the manifest explains how they got there.
+
+**Retries are part of correctness.**
+At registry scale, transient upstream errors are normal. The system is built to absorb them and continue.
+
+**Storage is a policy choice.**
+Loose files, bundles, and sidecars serve different operational needs. The pipeline supports each without changing the source of truth.
+
+**Observability is not optional.**
+Full-registry work is long-running infrastructure work. Operators need live counters, status APIs, and profiling hooks.
+
+**Offline capability starts with reproducibility.**
+An airgapped mirror is only valuable when it can be rebuilt, inspected, verified, and transported with confidence.
+
+---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
-The Python wrapper now also forwards the day-to-day downloader flags that matter most, including `--include-yanked`, `--verify-existing`, `--bundle`, `--bundle-mode`, `--bundle-size-gb`, `--bundles-out`, `--manifest`, `--listen`, `--progress-interval`, and `--dry-run`.
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+
+Maintained by Herb.
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "CloneCratesio",
+  "description": "High-performance crates.io mirroring pipeline with resumable downloads, bundle archives, sidecar metadata, JSONL audit logs, and Prometheus observability.",
+  "license": "https://opensource.org/licenses/MIT",
+  "programmingLanguage": ["Go", "Python", "PowerShell"],
+  "author": {
+    "@type": "Person",
+    "name": "Herb"
+  }
+}
+</script>
+```

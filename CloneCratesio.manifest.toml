@@ -1,0 +1,107 @@
+# CloneCratesio Project Manifest
+# Version: 1.0
+# Last Updated: 2026-05-12
+
+[project]
+id = "clone-cratesio"
+title = "CloneCratesio"
+type = "infrastructure"
+stage = "production"
+version = "1.0.0"
+description = "High-performance Rust crates.io mirror with sidecar metadata generation and Prometheus observability. Caches crate data and metrics for ecosystem analysis."
+tags = ["rust", "crates.io", "mirror", "infrastructure", "prometheus", "observability"]
+family = "infrastructure"
+canonical_manifest = true
+
+[metadata]
+created = "2026-04-09"
+last_updated = "2026-05-12"
+last_reviewed = "2026-05-12"
+maintainer = "Herb"
+license = "MIT"
+language_primary = "Rust"
+languages_used = ["Rust", "Bash"]
+
+[state]
+completion_percent = 100
+stability = "stable"
+active_development = false
+technical_debt = "low"
+maintenance_burden = "low"
+
+[runtime]
+platform = "server"
+environment = "Linux/Docker"
+services = ["Prometheus", "Crates.io"]
+storage = ["Local cache", "Metadata DB"]
+
+[capabilities]
+crates_mirroring = true
+metadata_generation = true
+prometheus_metrics = true
+observability = true
+caching = true
+
+[relationships]
+depends_on_projects = []
+used_by_projects = []
+supersedes = []
+superseded_by = []
+external_dependencies = ["Rust 1.70+", "Prometheus"]
+related_projects = []
+
+[artifacts]
+produces = ["crates-cache", "metadata-index", "prometheus-metrics"]
+consumes = ["crates.io-registry"]
+
+[generation]
+manifest_is_canonical = true
+generates_readme = true
+generates_jsonld = true
+generates_visualizations = true
+
+[documentation]
+readme = "README.md"
+generated_sections = true
+
+[semantic]
+domain = "infrastructure"
+primary_concepts = ["crates.io-mirroring", "package-caching", "observability"]
+related_domains = ["DevOps", "Rust Ecosystem"]
+cognitive_tags = ["mirror", "caching", "monitoring"]
+complexity = "medium"
+
+[visual]
+theme = "NeonInk-v0.1.1"
+primary_color = "#ce4100"
+semantic_role = "infrastructure"
+contains_svg_assets = false
+
+[observability]
+logs = true
+metrics = true
+health_checks = true
+event_stream = false
+telemetry = true
+
+[distribution]
+packaged = true
+package_formats = ["docker", "binary"]
+portable = false
+offline_capable = true
+requires_installation = true
+
+[links]
+homepage = "https://aptlantis.net"
+
+[structure]
+repo_path = "E:/CloneCratesio"
+docs_path = "E:/CloneCratesio/docs"
+
+[automation]
+build = "cargo build --release"
+tasks = ["mirror", "update-metadata", "health-check"]
+
+[notes]
+purpose = "Local crates.io mirror for offline Rust development and ecosystem analysis"
+performance = "High-performance caching with Prometheus observability"

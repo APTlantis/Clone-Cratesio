@@ -1,0 +1,6 @@
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CloneCratesio",
+  "url": "https://aptlantis.net/clone-cratesio"
+}
