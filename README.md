@@ -1,15 +1,3 @@
----
-[project]
-name = "CloneCratesio"
-slug = "clone-cratesio"
-description = "High-performance crates.io mirroring pipeline with resumable downloads, bundle archives, sidecar metadata, JSONL audit logs, and Prometheus observability."
-family = "infrastructure"
-
-[tags]
-languages = ["Go", "Python", "PowerShell"]
-platforms = ["Windows", "Linux", "server"]
----
-
 # CloneCratesio
 
 ![status](https://img.shields.io/badge/status-production-brightgreen)
