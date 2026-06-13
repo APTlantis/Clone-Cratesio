@@ -11,6 +11,8 @@ CloneCratesio is a production-grade crates.io mirror pipeline built for large Ru
 
 The project has proven itself at full registry scale: on June 11, 2026, it mirrored 2,490,647 crate records with 2,490,647 successes, 0 errors, and a sustained rate of roughly 264 records per second.
 
+![High-performance data mirroring metrics infographic](docs/High-Performance_Data_Mirroring_Metrics.png)
+
 ![CloneCratesio full mirror run showing 2,490,647 processed, 2,490,647 ok, 0 errors](docs/Crates-Mirror-6.11.26.png)
 
 Quick links: [Architecture](docs/Architecture.md) | [Windows Quickstart](docs/Quickstart-Windows.md) | [Prometheus](docs/Prometheus.md) | [Airgap Guide](docs/Airgap-Guide.md) | [Release v1.1.0](docs/RELEASE-v1.1.0.md)
@@ -47,7 +49,7 @@ This release corrected the day-to-day operator workflow:
 - Sidecars now match the selected storage mode: adjacent JSON files for loose mirrors, aggregated JSONL for bundle mirrors.
 - Prometheus and pprof start on `:9090` by default unless disabled.
 
-See [Docs/RELEASE-v1.1.0.md](docs/RELEASE-v1.1.0.md) for the full release note.
+See [docs/RELEASE-v1.1.0.md](docs/RELEASE-v1.1.0.md) for the full release note.
 
 ---
 
@@ -123,7 +125,7 @@ cmd/
 internal/
   downloader/                Download, retry, bundle, manifest, and metrics engine
   sidecar/                   Sidecar generation library
-Docs/                        Architecture, guides, screenshots, and release notes
+docs/                        Architecture, guides, screenshots, and release notes
 Testdata/                    Synthetic fixtures used in unit tests
 ```
 
@@ -315,7 +317,7 @@ Useful Prometheus metrics include:
 - `crates_download_inflight`
 - `crates_processed_total`
 
-See [Docs/Prometheus.md](docs/Prometheus.md) for metric definitions, PromQL examples, Grafana panel ideas, and alerting rules.
+See [docs/Prometheus.md](docs/Prometheus.md) for metric definitions, PromQL examples, Grafana panel ideas, and alerting rules.
 
 ---
 
@@ -500,13 +502,13 @@ The automated coverage includes shard path helpers, checksum verification, updat
 
 | File | Purpose |
 |------|---------|
-| [Docs/Architecture.md](docs/Architecture.md) | Detailed pipeline architecture and data flow. |
-| [Docs/Quickstart-Windows.md](docs/Quickstart-Windows.md) | Windows PowerShell quickstart. |
-| [Docs/Prometheus.md](docs/Prometheus.md) | Metrics, status API, pprof, Grafana, and alerting. |
-| [Docs/Airgap-Guide.md](docs/Airgap-Guide.md) | Offline and airgapped usage guidance. |
-| [Docs/CloneCrates.io - Technical Q&A and Implementation Guide.md](docs/CloneCrates.io%20-%20Technical%20Q%26A%20and%20Implementation%20Guide.md) | Implementation-oriented Q&A. |
-| [Docs/Maintainer-Retrospective-v1.1.0.md](docs/Maintainer-Retrospective-v1.1.0.md) | Maintainer notes and project history. |
-| [Docs/RELEASE-v1.1.0.md](docs/RELEASE-v1.1.0.md) | Current release notes and upgrade guidance. |
+| [docs/Architecture.md](docs/Architecture.md) | Detailed pipeline architecture and data flow. |
+| [docs/Quickstart-Windows.md](docs/Quickstart-Windows.md) | Windows PowerShell quickstart. |
+| [docs/Prometheus.md](docs/Prometheus.md) | Metrics, status API, pprof, Grafana, and alerting. |
+| [docs/Airgap-Guide.md](docs/Airgap-Guide.md) | Offline and airgapped usage guidance. |
+| [docs/CloneCrates.io - Technical Q&A and Implementation Guide.md](docs/CloneCrates.io%20-%20Technical%20Q%26A%20and%20Implementation%20Guide.md) | Implementation-oriented Q&A. |
+| [docs/Maintainer-Retrospective-v1.1.0.md](docs/Maintainer-Retrospective-v1.1.0.md) | Maintainer notes and project history. |
+| [docs/RELEASE-v1.1.0.md](docs/RELEASE-v1.1.0.md) | Current release notes and upgrade guidance. |
 | [CloneCratesio.manifest.toml](CloneCratesio.manifest.toml) | Machine-readable project manifest. |
 
 ---
